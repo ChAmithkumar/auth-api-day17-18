@@ -1,159 +1,104 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Dashboard</title>
+    <title>Task Manager</title>
+    <style>
+        body { font-family: Arial; max-width: 600px; margin: auto; }
+        .completed { text-decoration: line-through; color: gray; }
+        button { margin-left: 5px; }
+    </style>
 </head>
 <body>
 
-<h2>Signup</h2>
-<input id="signupName" placeholder="Name">
-<input id="signupEmail" placeholder="Email">
-<input id="signupPassword" placeholder="Password">
-<button onclick="signup()">Signup</button>
+<h1>Task Manager</h1>
 
-<h2>Login</h2>
-<input id="lemail" placeholder="Email">
-<input id="lpass" placeholder="Password">
+<!-- LOGIN -->
+<h3>Login</h3>
+<input id="email" placeholder="Email">
+<input id="password" type="password" placeholder="Password">
 <button onclick="login()">Login</button>
 
 <button onclick="logout()">Logout</button>
 
-<h2>Add User</h2>
-<input id="name" placeholder="Name">
-<input id="email" placeholder="Email">
-<button onclick="addUser()">Add</button>
+<hr>
 
-<input id="search" placeholder="Search" onkeyup="searchUser()">
+<!-- ADD TASK -->
+<input id="taskInput" placeholder="New Task">
 
-<table border="1">
-<tbody id="table"></tbody>
-<button onclick="fetchUsersDemo()">Test Fetch API</button>
-</table>
+<select id="category">
+    <option>Work</option>
+    <option>Personal</option>
+    <option>Urgent</option>
+</select>
+
+<button onclick="addTask()">Add</button>
+
+<input id="search" placeholder="Search..." onkeyup="searchTask()">
+
+<ul id="taskList"></ul>
 
 <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
 <script>
-const API = "https://task-maneger-day19.onrender.com";
+const API = "https://task-maneger-day19.onrender.com/tasks";
 
-// SIGNUP
-function signup() {
-    axios.post(API + "/signup", {
-        name: signupName.value,
-        email: signupEmail.value,
-        password: signupPassword.value
-    })
-    .then(() => alert("Signup successful"))
-    .catch(err => alert(err.response?.data?.msg || "Error"));
-}
+// LOAD TASKS
+async function loadTasks() {
+    const res = await axios.get(API);
+    const tasks = res.data;
 
-// LOGIN ✅ FIXED IDS
-function login() {
-    axios.post(API + "/login", {
-        email: lemail.value,
-        password: lpass.value
-    })
-    .then(res => {
-        localStorage.setItem("token", res.data.token);
-        alert("Login successful");
-        getUsers();
-    })
-    .catch(() => alert("Login failed"));
-}
+    taskList.innerHTML = "";
 
-// GET USERS
-function getUsers() {
-    axios.get(API + "/users", {
-        headers: {
-            Authorization: "Bearer " + localStorage.getItem("token")
-        }
-    })
-    .then(res => {
-        table.innerHTML = "";
-        res.data.forEach(u => {
-            table.innerHTML += `
-            <tr>
-                <td>${u.name}</td>
-                <td>${u.email}</td>
-                <td>
-                    <button onclick="editUser('${u._id}')">Edit</button>
-                    <button onclick="del('${u._id}')">Delete</button>
-                </td>
-            </tr>`; 
-        });
+    tasks.forEach(t => {
+        taskList.innerHTML += `
+        <li>
+            ${t.title} (${t.category})
+            <button onclick="editTask('${t._id}', '${t.title}')">Edit</button>
+            <button onclick="deleteTask('${t._id}')">Delete</button>
+        </li>`;
     });
 }
 
-// ADD USER ✅ TOKEN ADDED
-function addUser() {
-    axios.post(API + "/users", {
-        name: name.value,
-        email: email.value
-    }, {
-        headers: {
-            Authorization: "Bearer " + localStorage.getItem("token")
-        }
-    })
-    .then(() => getUsers());
+// ADD TASK
+async function addTask() {
+    if (!taskInput.value) return;
+
+    await axios.post(API, {
+        title: taskInput.value,
+        category: category.value
+    });
+
+    taskInput.value = "";
+    loadTasks();
 }
 
-// DELETE USER ✅ TOKEN ADDED
-function del(id) {
-    axios.delete(API + "/users/" + id, {
-        headers: {
-            Authorization: "Bearer " + localStorage.getItem("token")
-        }
-    })
-    .then(() => getUsers());
+// DELETE
+async function deleteTask(id) {
+    await axios.delete(API + "/" + id);
+    loadTasks();
 }
 
-// LOGOUT
-function logout() {
-    localStorage.removeItem("token");
-    alert("Logged out");
-    location.reload();
+// EDIT
+function editTask(id, oldTitle) {
+    const newTitle = prompt("Edit task:", oldTitle);
+    if (!newTitle) return;
+
+    axios.put(API + "/" + id, { title: newTitle })
+    .then(() => loadTasks());
 }
 
-// SEARCH ✅ FIXED TABLE ID
-function searchUser() {
+// SEARCH
+function searchTask() {
     const value = search.value.toLowerCase();
 
-    document.querySelectorAll("#table tr").forEach(row => {
-        row.style.display =
-            row.innerText.toLowerCase().includes(value) ? "" : "none";
+    document.querySelectorAll("#taskList li").forEach(li => {
+        li.style.display =
+            li.innerText.toLowerCase().includes(value) ? "" : "none";
     });
 }
 
-function editUser(id) {
-    const newName = prompt("Enter new name:");
-    if (!newName) return;
-
-    axios.put(API + "/users/" + id,
-        { name: newName },
-        {
-            headers: {
-                Authorization: "Bearer " + localStorage.getItem("token")
-            }
-        }
-    )
-    .then(res => {
-        console.log("Updated:", res.data); // debug
-        getUsers(); // refresh table
-    })
-    .catch(err => console.error(err));
-}
-
-// ✅ FETCH API EXAMPLE
-function fetchUsersDemo() {
-    fetch(API + "/users", {
-        headers: {
-            Authorization: "Bearer " + localStorage.getItem("token")
-        }
-    })
-    .then(res => res.json())
-    .then(data => console.log("Fetch Users:", data))
-    .catch(err => console.error(err));
-}
+// AUTO LOAD
+loadTasks();
 </script>
-
 </body>
 </html>
